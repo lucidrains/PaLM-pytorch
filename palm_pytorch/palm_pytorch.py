@@ -49,10 +49,7 @@ def rotate_half(x):
     return torch.cat((-x2, x1), dim = -1)
 
 def apply_rotary_pos_emb(pos, t):
-    rot_dim = pos.shape[-1]
-    t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
-    t = (t * pos.cos()) + (rotate_half(t) * pos.sin())
-    return torch.cat((t, t_pass), dim = -1)
+    return (t * pos.cos()) + (rotate_half(t) * pos.sin())
 
 # feedforward
 # classic Noam Shazeer paper, except here they use SwiGLU instead of the more popular GEGLU
@@ -86,7 +83,7 @@ class Attention(nn.Module):
         self.norm = LayerNorm(dim)
         self.heads = heads
         self.scale = dim_head ** -0.5
-        self.rotary_emb = RotaryEmbedding(min(32, dim_head))
+        self.rotary_emb = RotaryEmbedding(dim_head)
 
         self.to_q = nn.Linear(dim, inner_dim, bias = False)
         self.to_kv = nn.Linear(dim, dim_head * 2, bias = False)
