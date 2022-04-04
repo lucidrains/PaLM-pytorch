@@ -1,4 +1,4 @@
-## PaLM - Pytorch (wip)
+## PaLM - Pytorch
 
 Implementation of the specific Transformer architecture from <a href="https://ai.googleblog.com/2022/04/pathways-language-model-palm-scaling-to.html">PaLM - Scaling Language Modeling with Pathways</a>
 
@@ -15,7 +15,7 @@ $ pip install PaLM-pytorch
 
 ```python
 import torch
-from palm_pytorch.palm_pytorch import PaLM
+from palm_pytorch import PaLM
 
 palm = PaLM(
     dim = 512,
@@ -23,9 +23,9 @@ palm = PaLM(
     dim_head = 64,
     depth = 12,
     heads = 8
-)
+).cuda()
 
-tokens = torch.randint(0, 20000, (1, 2048))
+tokens = torch.randint(0, 20000, (1, 2048)).cuda()
 logits = palm(tokens) # (1, 2048, 20000)
 ```
 
