@@ -29,10 +29,6 @@ tokens = torch.randint(0, 20000, (1, 2048))
 logits = palm(tokens) # (1, 2048, 20000)
 ```
 
-## Todo
-
-- [ ] use Triton to add bias-less Layernorm + stable softmax
-
 ## Citations
 
 ```bibtex
