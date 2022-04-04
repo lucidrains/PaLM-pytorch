@@ -22,7 +22,7 @@ class LayerNorm(nn.Module):
 # parallel with residual
 # discovered by Wang et al + EleutherAI from GPT-J fame
 
-class Parallel(nn.Module):
+class ParallelResidual(nn.Module):
     def __init__(self, *fns):
         super().__init__()
         self.fns = nn.ModuleList(fns)
@@ -164,7 +164,7 @@ class PaLM(nn.Module):
         self.token_emb = nn.Embedding(num_tokens, dim)
 
         self.layers = nn.Sequential(*[
-            Parallel(
+            ParallelResidual(
                 Attention(dim = dim, dim_head = dim_head, heads = heads),
                 FeedForward(dim = dim, mult = ff_mult),
             ) for _ in range(depth)
