@@ -91,7 +91,8 @@ class Attention(nn.Module):
         self.scale = dim_head ** -0.5
         self.rotary_emb = RotaryEmbedding(min(32, dim_head))
 
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
+        self.to_q = nn.Linear(dim, inner_dim, bias = False)
+        self.to_kv = nn.Linear(dim, dim_head * 2, bias = False)
         self.to_out = nn.Linear(inner_dim, dim, bias = False)
 
     def forward(self, x):
@@ -104,15 +105,18 @@ class Attention(nn.Module):
         """
 
         n, device, h = x.shape[1], x.device, self.heads
-        q, k, v = self.to_qkv(x).chunk(3, dim = -1)
+        q, k, v = (self.to_q(x), *self.to_kv(x).chunk(2, dim = -1))
 
         # pre layernorm
 
         x = self.norm(x)
 
         # split heads
+        # they use multi-query attention, yet another Noam Shazeer paper
+        # they found no performance loss past a certain scale, and more efficient decoding obviously
+        # https://arxiv.org/abs/1911.02150
 
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
+        q = rearrange(q, 'b n (h d) -> b h n d', h = h)
 
         # rotary embeddings
 
@@ -125,7 +129,7 @@ class Attention(nn.Module):
 
         # similarity
 
-        sim = einsum('b i d, b j d -> b i j', q, k)
+        sim = einsum('b h i d, b j d -> b h i j', q, k)
 
         # causal mask
 
@@ -138,11 +142,11 @@ class Attention(nn.Module):
 
         # aggregate values
 
-        out = einsum('b i j, b j d -> b i d', attn, v)
+        out = einsum('b h i j, b j d -> b h i d', attn, v)
 
         # merge heads
 
-        out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
+        out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
 
 # transformer
