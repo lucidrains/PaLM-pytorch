@@ -145,42 +145,24 @@ class Attention(nn.Module):
 
 # transformer
 
-class PaLM(nn.Module):
-    def __init__(
-        self,
-        *,
-        dim,
-        num_tokens,
-        depth,
-        dim_head = 64,
-        heads = 8,
-        ff_mult = 4
-    ):
-        super().__init__()
-        self.token_emb = nn.Embedding(num_tokens, dim)
+def PaLM(
+    *,
+    dim,
+    num_tokens,
+    depth,
+    dim_head = 64,
+    heads = 8,
+    ff_mult = 4
+):
+    net = nn.Sequential(
+        nn.Embedding(num_tokens, dim),
+        *[ParallelResidual(
+            Attention(dim = dim, dim_head = dim_head, heads = heads),
+            FeedForward(dim = dim, mult = ff_mult),
+        ) for _ in range(depth)],
+        LayerNorm(dim),
+        nn.Linear(dim, num_tokens, bias = False)
+    )
 
-        self.layers = nn.Sequential(*[
-            ParallelResidual(
-                Attention(dim = dim, dim_head = dim_head, heads = heads),
-                FeedForward(dim = dim, mult = ff_mult),
-            ) for _ in range(depth)
-        ])
-
-        self.norm = LayerNorm(dim)
-
-    def forward(self, x):
-        """
-        einstein notation
-        b - batch
-        n - sequence
-        d - feature dimension
-        c - logits dimension
-        """
-
-        x = self.token_emb(x)
-
-        x = self.layers(x)
-        x = self.norm(x)
-
-        logits = einsum('b n d, c d -> b n c', x, self.token_emb.weight)
-        return logits
+    net[-1].weight = net[0].weight
+    return net
