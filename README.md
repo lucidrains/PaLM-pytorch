@@ -23,9 +23,9 @@ palm = PaLM(
     dim_head = 64,
     depth = 12,
     heads = 8
-).cuda()
+)
 
-tokens = torch.randint(0, 20000, (1, 2048)).cuda()
+tokens = torch.randint(0, 20000, (1, 2048))
 logits = palm(tokens) # (1, 2048, 20000)
 ```
 

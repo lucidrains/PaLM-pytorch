@@ -3,8 +3,6 @@ import torch.nn.functional as F
 from torch import nn, einsum
 from einops import rearrange
 
-assert torch.cuda.is_available(), 'cuda must be available'
-
 # normalization
 
 # they use layernorm without bias, something that pytorch does not offer
