@@ -106,6 +106,10 @@ class Attention(nn.Module):
         n, device, h = x.shape[1], x.device, self.heads
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
 
+        # pre layernorm
+
+        x = self.norm(x)
+
         # split heads
 
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
