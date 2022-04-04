@@ -3,6 +3,8 @@ import torch.nn.functional as F
 from torch import nn, einsum
 from einops import rearrange
 
+assert torch.cuda.is_available(), 'cuda must be available'
+
 # normalization
 
 # they use layernorm without bias, something that pytorch does not offer
@@ -20,6 +22,7 @@ class LayerNorm(nn.Module):
         return (x - mean) / (var + self.eps).sqrt() * self.g
 
 # parallel with residual
+# discovered by Wang et al + EleutherAI from GPT-J fame
 
 class Parallel(nn.Module):
     def __init__(self, *fns):
@@ -55,9 +58,10 @@ def apply_rotary_pos_emb(pos, t):
     return torch.cat((t, t_pass), dim = -1)
 
 # feedforward
+# classic Noam Shazeer paper, except here they use SwiGLU instead of the more popular GEGLU
+# https://arxiv.org/abs/2002.05202
 
 class SwiGLU(nn.Module):
-    """ https://arxiv.org/abs/2002.05202 """
     def forward(self, x):
         x, gate = x.chunk(2, dim = -1)
         return F.silu(gate) * x

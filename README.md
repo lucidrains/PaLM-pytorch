@@ -1,4 +1,4 @@
-## PaLM - Pytorch
+## PaLM - Pytorch (wip)
 
 Implementation of the specific Transformer architecture from <a href="https://ai.googleblog.com/2022/04/pathways-language-model-palm-scaling-to.html">PaLM - Scaling Language Modeling with Pathways</a>
 
@@ -31,7 +31,7 @@ logits = palm(tokens) # (1, 2048, 20000)
 
 ## Todo
 
-- [ ] use Triton to add bias-less Layernorm + stable softmax (attention)
+- [ ] use Triton to add bias-less Layernorm + stable softmax
 
 ## Citations
 
