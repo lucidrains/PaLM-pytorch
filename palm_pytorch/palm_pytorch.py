@@ -99,14 +99,17 @@ class Attention(nn.Module):
         """
 
         n, device, h = x.shape[1], x.device, self.heads
-        q, k, v = (self.to_q(x), *self.to_kv(x).chunk(2, dim = -1))
 
         # pre layernorm
 
         x = self.norm(x)
 
+        # queries, keys, values
+
+        q, k, v = (self.to_q(x), *self.to_kv(x).chunk(2, dim = -1))
+
         # split heads
-        # they use multi-query attention, yet another Noam Shazeer paper
+        # they use multi-query single-key-value attention, yet another Noam Shazeer paper
         # they found no performance loss past a certain scale, and more efficient decoding obviously
         # https://arxiv.org/abs/1911.02150
 
