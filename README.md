@@ -37,6 +37,10 @@ logits = palm(tokens) # (1, 2048, 20000)
 $ python train.py
 ```
 
+## Todo
+
+- [ ] offer a Triton optimized version of PaLM, bringing in https://github.com/lucidrains/triton-transformer
+
 ## Citations
 
 ```bibtex
