@@ -31,6 +31,12 @@ tokens = torch.randint(0, 20000, (1, 2048))
 logits = palm(tokens) # (1, 2048, 20000)
 ```
 
+## Test on Enwik8
+
+```bash
+$ python train.py
+```
+
 ## Citations
 
 ```bibtex

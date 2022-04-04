@@ -165,5 +165,7 @@ def PaLM(
         nn.Linear(dim, num_tokens, bias = False)
     )
 
-    net[-1].weight = net[0].weight
+    net[-1].weight = net[0].weight  # they used embedding weight tied projection out to logits, not common, but works
+
+    nn.init.normal_(net[0].weight, std = 0.02)
     return net
