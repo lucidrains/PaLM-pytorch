@@ -49,16 +49,21 @@ palm = PaLM(
 $ python train.py
 ```
 
-## Todo
-
-- [ ] offer a Triton optimized version of PaLM, bringing in https://github.com/lucidrains/triton-transformer
-
 ## Citations
 
 ```bibtex
 @article{chowdhery2022PaLM,
-  title   = {PaLM: Scaling Language Modeling with Pathways},
-  author  = {Chowdhery, Aakanksha et al},
-  year    = {2022}
+    title   = {PaLM: Scaling Language Modeling with Pathways},
+    author  = {Chowdhery, Aakanksha et al},
+    year    = {2022}
+}
+```
+
+```bibtex
+@article{Tillet2019TritonAI,
+    title   = {Triton: an intermediate language and compiler for tiled neural network computations},
+    author  = {Philippe Tillet and H. T. Kung and David D. Cox},
+    journal = {Proceedings of the 3rd ACM SIGPLAN International Workshop on Machine Learning and Programming Languages},
+    year    = {2019}
 }
 ```
