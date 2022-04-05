@@ -4,9 +4,7 @@ from einops import rearrange
 from torch import einsum, nn
 
 # normalization
-
 # they use layernorm without bias, something that pytorch does not offer
-# thus the custom class
 
 
 class LayerNorm(nn.Module):
@@ -193,9 +191,8 @@ def PaLM(*, dim, num_tokens, depth, dim_head=64, heads=8, ff_mult=4):
         nn.Linear(dim, num_tokens, bias=False)
     )
 
-    net[-1].weight = net[
-        0
-    ].weight  # they used embedding weight tied projection out to logits, not common, but works
+    # they used embedding weight tied projection out to logits, not common, but works
+    net[-1].weight = net[0].weight
 
     nn.init.normal_(net[0].weight, std=0.02)
     return net
