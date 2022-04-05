@@ -95,7 +95,7 @@ class Attention(nn.Module):
             return self.pos_emb[:n]
 
         pos_emb = self.rotary_emb(n, device=device)
-        self.register_buffer("position", pos_emb, persistent=False)
+        self.register_buffer("pos_emb", pos_emb, persistent=False)
         return pos_emb
 
     def forward(self, x):
