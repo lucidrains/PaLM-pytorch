@@ -8,9 +8,8 @@ from torch import einsum, nn
 
 
 class LayerNorm(nn.Module):
-    def __init__(self, dim, eps=1e-5):
+    def __init__(self, dim):
         super().__init__()
-        self.eps = eps
         self.gamma = nn.Parameter(torch.ones(dim))
         self.register_buffer("beta", torch.zeros(dim))
 
@@ -42,8 +41,8 @@ class RotaryEmbedding(nn.Module):
         self.register_buffer("inv_freq", inv_freq)
 
     def forward(self, max_seq_len, *, device):
-        seq = torch.arange(max_seq_len, device=device)
-        freqs = einsum("i , j -> i j", seq.type_as(self.inv_freq), self.inv_freq)
+        seq = torch.arange(max_seq_len, device=device, dtype=self.inv_freq.dtype)
+        freqs = einsum("i , j -> i j", seq, self.inv_freq)
         return torch.cat((freqs, freqs), dim=-1)
 
 
