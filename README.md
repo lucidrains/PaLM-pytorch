@@ -20,15 +20,27 @@ import torch
 from palm_pytorch import PaLM
 
 palm = PaLM(
-    dim = 512,
     num_tokens = 20000,
-    dim_head = 64,
+    dim = 512,
     depth = 12,
-    heads = 8
+    heads = 8,
+    dim_head = 64,
 )
 
 tokens = torch.randint(0, 20000, (1, 2048))
 logits = palm(tokens) # (1, 2048, 20000)
+```
+
+The PaLM 540B in the paper would be
+
+```python
+palm = PaLM(
+    num_tokens = 256000,
+    dim = 18432,
+    depth = 118,
+    heads = 48,
+    dim_head = 256
+)
 ```
 
 ## Test on Enwik8
