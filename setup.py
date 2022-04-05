@@ -10,7 +10,7 @@ setup(
   author_email = 'lucidrains@gmail.com',
   url = 'https://github.com/lucidrains/PaLM-pytorch',
   keywords = [
-    'artificial intelligence',
+    'artificial general intelligence',
     'deep learning',
     'transformers',
     'attention mechanism'
