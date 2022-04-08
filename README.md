@@ -8,6 +8,8 @@ This model is pretty much SOTA on everything language.
 
 It obviously will not scale, but it is just for educational purposes. To elucidate the public how simple it all really is.
 
+<a href="https://github.com/lucidrains/palm-jax">Jax version</a>
+
 ## Install
 ```bash
 $ pip install PaLM-pytorch
