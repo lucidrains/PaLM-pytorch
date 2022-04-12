@@ -2,7 +2,7 @@
 
 ## PaLM - Pytorch
 
-Implementation of the specific Transformer architecture from <a href="https://ai.googleblog.com/2022/04/pathways-language-model-palm-scaling-to.html">PaLM - Scaling Language Modeling with Pathways</a>, in less than 200 lines of code.
+Implementation of the specific Transformer architecture from <a href="https://ai.googleblog.com/2022/04/pathways-language-model-palm-scaling-to.html">PaLM - Scaling Language Modeling with Pathways</a>, in less than <a href="https://github.com/lucidrains/PaLM-pytorch/blob/main/palm_pytorch/palm_pytorch.py">200 lines of code</a>.
 
 This model is pretty much SOTA on everything language.
 
