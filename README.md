@@ -4,7 +4,7 @@
 
 Implementation of the specific Transformer architecture from <a href="https://ai.googleblog.com/2022/04/pathways-language-model-palm-scaling-to.html">PaLM - Scaling Language Modeling with Pathways</a>, in less than <a href="https://github.com/lucidrains/PaLM-pytorch/blob/main/palm_pytorch/palm_pytorch.py">200 lines of code</a>.
 
-This model is pretty much SOTA on everything language.
+This model is pretty much SOTA on everything language. <a href="https://www.youtube.com/watch?v=RJwPN4qNi_Y">Yannic Kilcher explanation</a>
 
 It obviously will not scale, but it is just for educational purposes. To elucidate the public how simple it all really is.
 
