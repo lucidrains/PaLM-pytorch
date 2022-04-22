@@ -16,9 +16,7 @@ class LayerNorm(nn.Module):
     def forward(self, x):
         return F.layer_norm(x, x.shape[-1:], self.gamma, self.beta)
 
-
-# parallel with residual
-# discovered by Wang et al + EleutherAI from GPT-J fame
+# residual
 
 
 class Residual(nn.Module):
@@ -65,7 +63,9 @@ class SwiGLU(nn.Module):
         x, gate = x.chunk(2, dim=-1)
         return F.silu(gate) * x
 
-# attention and feedforward
+
+# parallel attention and feedforward with residual
+# discovered by Wang et al + EleutherAI from GPT-J fame
 
 
 class ParallelTransformerBlock(nn.Module):
@@ -125,7 +125,7 @@ class ParallelTransformerBlock(nn.Module):
 
         x = self.norm(x)
 
-        # queries, keys, values
+        # attention queries, keys, values, and feedforward inner
 
         q, k, v, ff = self.fused_attn_ff_proj(x).split(self.fused_dims, dim=-1)
 
