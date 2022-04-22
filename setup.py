@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name="PaLM-pytorch",
     packages=find_packages(exclude=[]),
-    version="0.0.12",
+    version="0.1.0",
     license="MIT",
     description="PaLM: Scaling Language Modeling with Pathways - Pytorch",
     author="Phil Wang",

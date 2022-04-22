@@ -19,13 +19,13 @@ class LayerNorm(nn.Module):
 
 # parallel with residual
 
-class ParallelResidual(nn.Module):
-    def __init__(self, *fns):
+class Residual(nn.Module):
+    def __init__(self, fn):
         super().__init__()
-        self.fns = nn.ModuleList(fns)
+        self.fn = fn
 
     def forward(self, x):
-        return x + sum([fn(x) for fn in self.fns])
+        return self.fn(x) + x
 
 
 # rotary positional embedding
@@ -59,32 +59,25 @@ class SwiGLU(nn.Module):
         x, gate = x.chunk(2, dim=-1)
         return F.silu(gate) * x
 
-
-def FeedForward(dim, mult=4):
-    inner_dim = int(dim * mult)
-    return nn.Sequential(
-        LayerNorm(dim),
-        nn.Linear(dim, inner_dim * 2, bias=False),
-        SwiGLU(),
-        nn.Linear(inner_dim, dim, bias=False),
-    )
+# parallel attention and feedforward
 
 
-# attention
-
-
-class Attention(nn.Module):
-    def __init__(self, dim, dim_head=64, heads=8):
+class ParallelTransformerBlock(nn.Module):
+    def __init__(self, dim, dim_head=64, heads=8, ff_mult=4):
         super().__init__()
-        inner_dim = dim_head * heads
         self.norm = LayerNorm(dim)
+
+        attn_inner_dim = dim_head * heads
+        ff_inner_dim = dim * ff_mult
+        self.fused_dims = (attn_inner_dim, dim_head, dim_head, (ff_inner_dim * 2))
+
         self.heads = heads
         self.scale = dim_head**-0.5
         self.rotary_emb = RotaryEmbedding(dim_head)
 
-        self.to_q = nn.Linear(dim, inner_dim, bias=False)
-        self.to_kv = nn.Linear(dim, dim_head * 2, bias=False)
-        self.to_out = nn.Linear(inner_dim, dim, bias=False)
+        self.fused_attn_ff_proj = nn.Linear(dim, sum(self.fused_dims), bias=False)
+        self.attn_out = nn.Linear(attn_inner_dim, dim, bias=False)
+        self.ff_out = nn.Sequential(SwiGLU(), nn.Linear(ff_inner_dim, dim, bias=False))
 
         # for caching of rotary embeddings
 
@@ -107,7 +100,7 @@ class Attention(nn.Module):
 
         # queries, keys, values
 
-        q, k, v = (self.to_q(x), *self.to_kv(x).chunk(2, dim=-1))
+        q, k, v, ff = self.fused_attn_ff_proj(x).split(self.fused_dims, dim=-1)
 
         # split heads
 
@@ -137,7 +130,7 @@ class Attention(nn.Module):
         # merge heads
 
         out = rearrange(out, "b h n d -> b n (h d)")
-        return self.to_out(out)
+        return self.attn_out(out) + self.ff_out(ff)
 
 
 # transformer
@@ -147,10 +140,7 @@ def PaLM(*, dim, num_tokens, depth, dim_head=64, heads=8, ff_mult=4):
     net = nn.Sequential(
         nn.Embedding(num_tokens, dim),
         *[
-            ParallelResidual(
-                Attention(dim=dim, dim_head=dim_head, heads=heads),
-                FeedForward(dim=dim, mult=ff_mult),
-            )
+            Residual(ParallelTransformerBlock(dim=dim, dim_head=dim_head, heads=heads, ff_mult=ff_mult))
             for _ in range(depth)
         ],
         LayerNorm(dim),
