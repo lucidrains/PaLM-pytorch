@@ -6,7 +6,6 @@ from torch import einsum, nn
 # normalization
 # they use layernorm without bias, something that pytorch does not offer
 
-
 class LayerNorm(nn.Module):
     def __init__(self, dim):
         super().__init__()
@@ -66,34 +65,46 @@ class SwiGLU(nn.Module):
         x, gate = x.chunk(2, dim=-1)
         return F.silu(gate) * x
 
+class PaLMTransformer(nn.Module):
+    def __init__(self, dim : int, dim_head : int =64, heads : int =8, ffn_mult : int = 4):
+        """
+        Implement the Transformer structure, including Attention + FFN proposed in PALM 
+        PaLM: Scaling Language Modeling with Pathways
+        https://storage.googleapis.com/pathways-language-model/PaLM-paper.pdf
 
-def FeedForward(dim, mult=4):
-    inner_dim = int(dim * mult)
-    return nn.Sequential(
-        LayerNorm(dim),
-        nn.Linear(dim, inner_dim * 2, bias=False),
-        SwiGLU(),
-        nn.Linear(inner_dim, dim, bias=False),
-    )
+        Different from the vanilla transformers in the following aspects
 
+        Args:
+            dim (int): hidden dim
+            dim_head (int, optional): the dim of head. Defaults to 64.
+            heads (int, optional): number of head. Defaults to 8.
+            ffn_mult (int, optional): ffn multiplier. Defaults to 4.
+        """
 
-# attention
-
-
-class Attention(nn.Module):
-    def __init__(self, dim, dim_head=64, heads=8):
         super().__init__()
-        inner_dim = dim_head * heads
+
+        self.attn_inner_dim = dim_head * heads
+        self.ffn_inner_dim = int(dim * ffn_mult)
         self.norm = LayerNorm(dim)
+
         self.heads = heads
+        self.dim_head = dim_head
         self.scale = dim_head**-0.5
-        self.rotary_emb = RotaryEmbedding(dim_head)
+        self.rotary_emb = RotaryEmbedding(self.dim_head)
 
-        self.to_q = nn.Linear(dim, inner_dim, bias=False)
-        self.to_kv = nn.Linear(dim, dim_head * 2, bias=False)
-        self.to_out = nn.Linear(inner_dim, dim, bias=False)
+        # self.to_q = nn.Linear(dim, inner_dim, bias=False)
+        # self.to_kv = nn.Linear(dim, dim_head * 2, bias=False)
+        # ffn linear (dim, inner_dim * 2)
+        self.fused_kernel = nn.Linear(dim, (dim_head * (heads + 2) + self.ffn_inner_dim * 2), bias=False)
+        self.to_out = nn.Linear(self.attn_inner_dim, dim, bias=False)
 
-        # for caching causal mask and rotary embeddings
+        self.ffn_unfused_kernels = nn.Sequential(
+            # LayerNorm(dim),
+            # nn.Linear(dim, ffn_inner_dim * 2, bias=False),
+            SwiGLU(),
+            nn.Linear(self.ffn_inner_dim, dim, bias=False),
+        )
+    
 
         self.register_buffer("mask", None, persistent=False)
         self.register_buffer("pos_emb", None, persistent=False)
@@ -113,27 +124,23 @@ class Attention(nn.Module):
         pos_emb = self.rotary_emb(n, device=device)
         self.register_buffer("pos_emb", pos_emb, persistent=False)
         return pos_emb
-
+        
     def forward(self, x):
-        """
-        einstein notation
-        b - batch
-        h - heads
-        n, i, j - sequence length (base sequence length, source, target)
-        d - feature dimension
-        """
-
         n, device, h = x.shape[1], x.device, self.heads
 
         # pre layernorm
 
         x = self.norm(x)
 
-        # queries, keys, values
-
-        q, k, v = (self.to_q(x), *self.to_kv(x).chunk(2, dim=-1))
-
-        # split heads
+        # (batch, seq, (self.attn_inner_dim + dim_head*2 + self.ffn_inner_dim * 2), dim)
+        res_pack = self.fused_kernel(x)
+        assert len(res_pack.shape) == 3, f"output of fused linear kernel in PaLMTransformer should have 3 dimensions"
+        q = res_pack.narrow(2, 0, self.attn_inner_dim)
+        k = res_pack.narrow(2, self.attn_inner_dim, self.dim_head)
+        v = res_pack.narrow(2, self.attn_inner_dim + self.dim_head, self.dim_head)
+        ffn_input = res_pack.narrow(2, self.attn_inner_dim + 2 * self.dim_head, self.ffn_inner_dim * 2)
+        
+         # split heads
         # they use multi-query single-key-value attention, yet another Noam Shazeer paper
         # they found no performance loss past a certain scale, and more efficient decoding obviously
         # https://arxiv.org/abs/1911.02150
@@ -170,19 +177,14 @@ class Attention(nn.Module):
         # merge heads
 
         out = rearrange(out, "b h n d -> b n (h d)")
-        return self.to_out(out)
-
-
-# transformer
-
+        return self.to_out(out) + self.ffn_unfused_kernels(ffn_input)
 
 def PaLM(*, dim, num_tokens, depth, dim_head=64, heads=8, ff_mult=4):
     net = nn.Sequential(
         nn.Embedding(num_tokens, dim),
         *[
             ParallelResidual(
-                Attention(dim=dim, dim_head=dim_head, heads=heads),
-                FeedForward(dim=dim, mult=ff_mult),
+                PaLMTransformer(dim=dim, dim_head=dim_head, ffn_mult=ff_mult),
             )
             for _ in range(depth)
         ],
