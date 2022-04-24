@@ -43,7 +43,7 @@ def decode_tokens(tokens):
 
 model = PaLM(num_tokens=256, dim=512, depth=8)
 
-model = AutoregressiveWrapper(model, max_seq_len=2048)
+model = AutoregressiveWrapper(model, max_seq_len=SEQ_LEN)
 model.cuda()
 
 # prepare enwik8 data
