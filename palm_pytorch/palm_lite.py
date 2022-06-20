@@ -54,7 +54,7 @@ class AlibiPositionalBias(nn.Module):
         h, i, j, device = *qk_sim.shape[-3:], qk_sim.device
 
         if exists(self.bias) and self.bias.shape[-1] >= j:
-            return qk_sim + self.bias[..., :i, :j]
+            return self.bias[..., :i, :j]
 
         bias = self.get_bias(i, j, device)
         bias = bias * self.slopes
