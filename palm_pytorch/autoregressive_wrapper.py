@@ -69,7 +69,7 @@ class AutoregressiveWrapper(nn.Module):
 
                 if is_eos_token.any(dim=-1).all():
                     # mask out everything after the eos tokens
-                    shifted_is_eos_tokens = F.pad(is_eos_tokens, (1, -1))
+                    shifted_is_eos_tokens = F.pad(is_eos_token, (1, -1))
                     mask = shifted_is_eos_tokens.float().cumsum(dim=-1) >= 1
                     out = out.masked_fill(mask, self.pad_value)
                     break
