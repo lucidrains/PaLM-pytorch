@@ -79,5 +79,6 @@ class AutoregressiveWrapper(nn.Module):
 
     def forward(self, x, **kwargs):
         x_inp, x_labels = x[:, :-1], x[:, 1:]
-        logits = self.net(x_inp, **kwargs)
-        return F.cross_entropy(rearrange(logits, "b c n -> b n c"), x_labels)
+        logits, aux_loss = self.net(x_inp, return_aux_loss = True, **kwargs)
+        loss = F.cross_entropy(rearrange(logits, "b c n -> b n c"), x_labels)
+        return loss + aux_loss * loss

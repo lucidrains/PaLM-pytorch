@@ -1,6 +1,8 @@
 import torch
+from functools import partial
+from math import pi, e
 import torch.nn.functional as F
-from einops import rearrange
+from einops import rearrange, reduce
 from torch import einsum, nn
 
 # normalization
@@ -15,18 +17,6 @@ class LayerNorm(nn.Module):
 
     def forward(self, x):
         return F.layer_norm(x, x.shape[-1:], self.gamma, self.beta)
-
-# residual
-
-
-class Residual(nn.Module):
-    def __init__(self, fn):
-        super().__init__()
-        self.fn = fn
-
-    def forward(self, x):
-        return self.fn(x) + x
-
 
 # rotary positional embedding
 # https://arxiv.org/abs/2104.09864
@@ -170,20 +160,52 @@ class ParallelTransformerBlock(nn.Module):
 
 # transformer
 
+ALPHA = 0.1
+BETA = 0.1
 
-def PaLM(*, dim, num_tokens, depth, dim_head=64, heads=8, ff_mult=4):
-    net = nn.Sequential(
-        nn.Embedding(num_tokens, dim),
-        *[
-            Residual(ParallelTransformerBlock(dim=dim, dim_head=dim_head, heads=heads, ff_mult=ff_mult))
-            for _ in range(depth)
-        ],
-        LayerNorm(dim),
-        nn.Linear(dim, num_tokens, bias=False)
-    )
+class PaLM(nn.Module):
+    def __init__(self, *, dim, num_tokens, depth, dim_head=64, heads=8, ff_mult=4):
+        super().__init__()
 
-    # they used embedding weight tied projection out to logits, not common, but works
-    net[-1].weight = net[0].weight
+        self.token_emb = nn.Embedding(num_tokens, dim)
+        self.layers = nn.ModuleList(
+            [
+                ParallelTransformerBlock(dim=dim, dim_head=dim_head, heads=heads, ff_mult=ff_mult)
+                for _ in range(depth)
+            ]
+        )
 
-    nn.init.normal_(net[0].weight, std=0.02)
-    return net
+        self.to_logits = nn.Sequential(
+            # LayerNorm(dim),
+            nn.Linear(dim, num_tokens, bias=False)
+        )
+
+        self.alpha = nn.Parameter(torch.zeros(depth))
+
+        # they used embedding weight tied projection out to logits, not common, but works
+        self.to_logits[-1].weight = self.token_emb.weight
+
+        nn.init.normal_(self.token_emb.weight, std=0.02)
+
+    def forward(self, x, return_aux_loss = False):
+        x = self.token_emb(x)
+
+        alpha = self.alpha.clamp(min = ALPHA)
+        layer_entropies = []
+
+        for layer in self.layers:
+            x = layer(x)
+
+            std = reduce(x, 'b n d -> n d', torch.std)
+            entropies = reduce(0.5 * torch.log(pi * e * (std ** 2) + 1), 'n d -> ', 'mean')
+            layer_entropies.append(entropies)
+
+        layer_entropies = torch.stack(layer_entropies, dim = 0)
+        aux_loss = F.mse_loss(layer_entropies, alpha) * BETA
+
+        logits = self.to_logits(x)
+
+        if return_aux_loss:
+            return logits, aux_loss
+
+        return logits
