@@ -157,7 +157,7 @@ class ParallelTransformerBlock(nn.Module):
 
         # flash cosine similarity attention
 
-        o = self.attn_fn(q, k, v, causal = True, scale = scale, groups = l2norm_groups)
+        out = self.attn_fn(q, k, v, causal = True, scale = scale, groups = l2norm_groups)
 
         # merge heads
 
