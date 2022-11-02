@@ -1,5 +1,6 @@
 import gzip
 import random
+import wandb
 
 import numpy as np
 import torch
@@ -11,13 +12,15 @@ from torch.utils.data import DataLoader, Dataset
 from palm_pytorch.triton import PaLM
 from palm_pytorch.autoregressive_wrapper import AutoregressiveWrapper
 
+wandb.init(project="my-test-project")
+
 # constants
 
 NUM_BATCHES = int(1e5)
 BATCH_SIZE = 4
 GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
-VALIDATE_EVERY = 100
+VALIDATE_EVERY = 10
 GENERATE_EVERY = 500
 GENERATE_LENGTH = 512
 SEQ_LEN = 1024
@@ -87,6 +90,7 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
         loss = model(next(train_loader))
         loss.backward()
 
+    wandb.log({"train loss": loss})
     print(f"training loss: {loss.item()}")
     torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
     optim.step()
@@ -96,6 +100,7 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
         model.eval()
         with torch.no_grad():
             loss = model(next(val_loader))
+            wandb.log({"val loss": loss})
             print(f"validation loss: {loss.item()}")
 
     if i % GENERATE_EVERY == 0:
