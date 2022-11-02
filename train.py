@@ -9,7 +9,7 @@ import tqdm
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from palm_pytorch.triton import PaLM
+from palm_pytorch.palm_pytorch import PaLM
 from palm_pytorch.autoregressive_wrapper import AutoregressiveWrapper
 
 wandb.init(project="my-test-project")
