@@ -1,18 +1,27 @@
 import gzip
 import random
 import wandb
-
+import argparse
 import numpy as np
 import torch
 import torch.optim as optim
 import tqdm
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
+from torch.cuda.amp import autocast, GradScaler
 
-from palm_pytorch.palm_pytorch import PaLM
+from palm_pytorch.palm_flash_cosine_sim import PaLM_flash
 from palm_pytorch.autoregressive_wrapper import AutoregressiveWrapper
 
 wandb.init(project="my-test-project")
+
+# arguments
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--use-cuda-kernel', default = False, action = 'store_true')
+parser.add_argument('--use-float32', default = False, action = 'store_true')
+parser.add_argument('--seq-len', default = 1024, type = int)
+args = parser.parse_args()
 
 # constants
 
@@ -23,7 +32,8 @@ LEARNING_RATE = 2e-4
 VALIDATE_EVERY = 10
 GENERATE_EVERY = 500
 GENERATE_LENGTH = 512
-SEQ_LEN = 1024
+SEQ_LEN = 8192
+USE_AMP = not args.use_float32
 
 # helpers
 
@@ -44,7 +54,7 @@ def decode_tokens(tokens):
 
 # instantiate GPT-like decoder model
 
-model = PaLM(num_tokens=256, dim=512, depth=8)
+model = PaLM_flash(num_tokens=256, dim=512, depth=8)
 
 model = AutoregressiveWrapper(model, max_seq_len=SEQ_LEN)
 model.cuda()
@@ -81,20 +91,26 @@ val_loader = cycle(DataLoader(val_dataset, batch_size=BATCH_SIZE))
 
 optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
+scaler = GradScaler(enabled = USE_AMP)
+
 # training
 
 for i in tqdm.tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
     model.train()
+    optim.zero_grad()
 
     for __ in range(GRADIENT_ACCUMULATE_EVERY):
-        loss = model(next(train_loader))
-        loss.backward()
+        with autocast(enabled = USE_AMP):
+            loss = model(next(train_loader))
+        scaler.scale(loss / GRADIENT_ACCUMULATE_EVERY).backward()
 
     wandb.log({"train loss": loss})
     print(f"training loss: {loss.item()}")
+
+    scaler.unscale_(optim)
     torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-    optim.step()
-    optim.zero_grad()
+    scaler.step(optim)
+    scaler.update()
 
     if i % VALIDATE_EVERY == 0:
         model.eval()
