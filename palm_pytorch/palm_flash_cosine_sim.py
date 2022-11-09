@@ -5,6 +5,26 @@ from torch import einsum, nn
 from functools import partial
 from flash_cosine_sim_attention import flash_cosine_sim_attention
 
+def l2norm(t):
+    return F.normalize(t, dim = -1)
+
+def grouped_l2norm(t, groups = 1):
+    shape = t.shape
+    dim = shape[-1]
+    t = t.reshape(*shape[:-1], groups, dim // groups)
+    t = l2norm(t)
+    return t.reshape(shape)
+
+def l2norm_tensors(*tensors, groups = 1):
+    assert len(tensors) > 0
+    dtype = tensors[0].dtype
+
+    fn = partial(grouped_l2norm, groups = groups)
+
+    tensors = tuple(map(fn, tensors))
+    tensors = tuple(map(lambda t: t.type(dtype), tensors))
+    return tensors
+
 # normalization
 # they use layernorm without bias, something that pytorch does not offer
 
@@ -140,6 +160,8 @@ class ParallelTransformerBlock(nn.Module):
         # https://arxiv.org/abs/1911.02150
 
         q = rearrange(q, "b n (h d) -> b h n d", h=h)
+
+        q, k = l2norm_tensors(q, k)
 
         # rotary embeddings
 
